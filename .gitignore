@@ -1,0 +1,17 @@
+# 编译产物
+*.o
+*.out
+*.exe
+test_program
+
+# 系统文件
+.DS_Store
+.vscode/
+.idea/
+
+# 临时文件
+*.swp
+*~
+
+# 调试文件
+*.dSYM/ 
