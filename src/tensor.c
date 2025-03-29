@@ -212,6 +212,45 @@ Tensor* tensor_view(Tensor* tensor, int num_dims, const int* new_dims) {
     return tensor_reshape(tensor, num_dims, new_dims);
 }
 
+// 递归打印辅助函数
+static void print_tensor_recursive(const Tensor* tensor, const size_t* strides, int depth, size_t offset) {
+    if (depth == tensor->num_dims) {
+        printf("%.4f", tensor->storage->data[offset]);
+        return;
+    }
+    
+    printf("[");
+    
+    // 对于非最后两个维度，添加换行和缩进
+    if (depth < tensor->num_dims - 2) {
+        printf("\n");
+        for (int j = 0; j <= depth; j++) printf("  ");
+    }
+    
+    for (int i = 0; i < tensor->dims[depth]; i++) {
+        print_tensor_recursive(tensor, strides, depth + 1, offset + i * strides[depth]);
+        
+        if (i < tensor->dims[depth] - 1) {
+            if (depth == tensor->num_dims - 2) {
+                printf("\n");  // 倒数第二维度只用换行分隔
+                for (int j = 0; j < depth; j++) printf("  ");
+            } else if (depth == tensor->num_dims - 1) {
+                printf(", ");  // 最后一维度用逗号和空格分隔
+            } else {
+                printf(",\n");  // 其他维度用逗号和换行分隔
+                for (int j = 0; j <= depth; j++) printf("  ");
+            }
+        }
+    }
+    
+    // 对于非最后两个维度，在结束时添加换行和缩进
+    if (depth < tensor->num_dims - 2) {
+        printf("\n");
+        for (int j = 0; j < depth; j++) printf("  ");
+    }
+    printf("]");
+}
+
 // 打印张量
 void tensor_print(Tensor* tensor) {
     if (!tensor) {
@@ -219,22 +258,25 @@ void tensor_print(Tensor* tensor) {
         return;
     }
     
-    printf("Tensor([");
-    for (size_t i = 0; i < tensor->storage->size; i++) {
-        printf("%.4f", tensor->storage->data[i]);
-        if (i < tensor->storage->size - 1) {
-            printf(", ");
-        }
+    // 计算总元素数和每个维度的步长
+    size_t* strides = safe_malloc(tensor->num_dims * sizeof(size_t));
+    size_t stride = 1;
+    for (int i = tensor->num_dims - 1; i >= 0; i--) {
+        strides[i] = stride;
+        stride *= tensor->dims[i];
     }
-    printf("], shape=(");
     
+    print_tensor_recursive(tensor, strides, 0, 0);
+    
+    // 打印维度信息
+    printf("\nshape: (");
     for (int i = 0; i < tensor->num_dims; i++) {
         printf("%d", tensor->dims[i]);
-        if (i < tensor->num_dims - 1) {
-            printf(", ");
-        }
+        if (i < tensor->num_dims - 1) printf(", ");
     }
-    printf("))\n");
+    printf(")\n");
+    
+    free(strides);
 }
 
 // 设置父节点
