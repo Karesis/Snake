@@ -224,3 +224,149 @@ shape_print(const Shape shape)
     }
     printf("]");
 }
+
+bool
+shape_is_contiguous(const Shape shape)
+{
+    if (shape == NULL) return false;
+    if (shape->_ndim == 0) return true;
+
+    size_t expected_stride = 1;
+    for (int i = shape->_ndim - 1; i >= 0; i --)
+    {
+        if (shape->_dims[i] != 1)
+        {
+            if (shape->_stride[i] != expected_stride)
+                return false;
+        }
+        
+        expected_stride *= shape->_dims[i];
+    }
+
+    return true;
+}
+
+Shape
+shape_permute(const Shape source_shape, const int* axes)
+{
+    if (source_shape == NULL || axes == NULL) return NULL;
+
+    int ndim = source_shape->_ndim;
+
+    bool* axis_seen = safecalloc(ndim, sizeof(bool)); // 创建一个“清单”
+    if (axis_seen == NULL) return NULL; // 内存分配失败
+
+    for (int i = 0; i < ndim; i++) {
+        int original_axis = axes[i];
+        
+        // 1. 检查范围
+        if (original_axis < 0 || original_axis >= ndim) {
+            fprintf(stderr, "Error: axis %d is out of bounds for tensor of dimension %d\n", original_axis, ndim);
+            free(axis_seen);
+            return NULL;
+        }
+        
+        // 2. 检查唯一性
+        if (axis_seen[original_axis]) {
+            fprintf(stderr, "Error: duplicate axis %d found in axes array\n", original_axis);
+            free(axis_seen);
+            return NULL;
+        }
+        
+        axis_seen[original_axis] = true; // 在清单上打勾
+    }
+    free(axis_seen); // 检查完毕，释放清单
+
+    Shape new_shape = safemalloc(sizeof(struct _shape));
+    if (new_shape == NULL) return NULL;
+
+    new_shape->_ndim = ndim;
+
+    // 分配新维度和新步长的内存
+    new_shape->_dims = safemalloc(sizeof(int) * ndim);
+    new_shape->_stride = safemalloc(sizeof(size_t) * ndim);
+    
+    if (new_shape->_dims == NULL || new_shape->_stride == NULL) {
+        free(new_shape->_dims);
+        free(new_shape->_stride);
+        free(new_shape);
+        return NULL;
+    }
+
+    // 根据 axes 重新排序 shape 和 stride
+    for (int i = 0; i < ndim; i++)
+    {
+        int original_axis = axes[i];
+        new_shape->_dims[i] = source_shape->_dims[original_axis];
+        new_shape->_stride[i] = source_shape->_stride[original_axis];
+    }
+
+    return new_shape;
+
+}
+
+// broad rule is from the right to left. e.g:
+// target: (5, 3, 4)
+// source:    (3, 4)  <-- 右对齐
+Shape
+shape_expand(const Shape source_shape, const Shape target_shape)
+{
+    if (source_shape == NULL || target_shape == NULL) return NULL;
+
+    const int source_ndim = shape_get_ndim(source_shape);
+    const int* source_dims = shape_get_dims(source_shape);
+    const size_t* source_strides = shape_get_strides(source_shape);
+
+    const int target_ndim = shape_get_ndim(target_shape);
+    const int* target_dims = shape_get_dims(target_shape);
+
+    // --- 1. 验证兼容性 ---
+    // a. 原始维度不能比目标维度多
+    if (source_ndim > target_ndim) {
+        fprintf(stderr, "Error: cannot expand to a shape with fewer dimensions.\n");
+        return NULL;
+    }
+
+    // b. 从右向左逐一比较维度
+    for (int i = 1; i <= source_ndim; i++) {
+        int original_dim = source_dims[source_ndim - i];
+        int target_dim = target_dims[target_ndim - i];
+        
+        // 维度的尺寸必须相等，或者是原始维度为1
+        if (original_dim != target_dim && original_dim != 1) {
+            fprintf(stderr, "Error: Incompatible shapes for expansion. A dimension must be 1 to be expanded.\n");
+            return NULL;
+        }
+    }
+
+    // --- 2. 创建并填充新的 Shape 对象 ---
+    Shape new_shape = safemalloc(sizeof(struct _shape));
+    if (new_shape == NULL) return NULL;
+    
+    new_shape->_ndim = target_ndim;
+
+    // a. 新的 dims 就是 target_dims 的一个副本
+    new_shape->_dims = safemalloc(sizeof(int) * target_ndim);
+    if (new_shape->_dims == NULL) { free(new_shape); return NULL; }
+    memcpy(new_shape->_dims, target_dims, sizeof(int) * target_ndim);
+
+    // b. 计算新的 strides，这是广播的核心
+    new_shape->_stride = safemalloc(sizeof(size_t) * target_ndim);
+    if (new_shape->_stride == NULL) { free(new_shape->_dims); free(new_shape); return NULL; }
+
+    int shape_diff = target_ndim - source_ndim;
+    for (int i = 0; i < target_ndim; i++)
+    {
+        int source_dim_idx = i - shape_diff;
+
+        // 如果这是一个新增的维度(在左侧)，或者原始维度是1，那么这就是一个广播维度
+        if (source_dim_idx < 0 || source_dims[source_dim_idx] == 1) {
+            new_shape->_stride[i] = 0; // <-- 广播的魔法！
+        } else {
+            // 否则，保持原来的步长
+            new_shape->_stride[i] = source_strides[source_dim_idx];
+        }
+    }
+
+    return new_shape;
+}
