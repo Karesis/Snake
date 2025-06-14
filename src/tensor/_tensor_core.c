@@ -1,6 +1,13 @@
 #include "tensor/_tensor_core.h"
+
 #include "utils/_malloc.h"
 #include "tensor/_shape.h"
+
+#include <stdint.h> // for int32_t
+#include <stddef.h> // for size_t
+#include <stdlib.h> // for free(), NULL
+#include <string.h> // for memcpy()
+#include <stdbool.h> // for bool, true, false
 
 struct _tensor
 {
@@ -9,6 +16,8 @@ struct _tensor
     DataType dtype;
     bool owns_data;
 };
+
+static size_t _get_dtype_size(DataType dtype);
 
 Tensor 
 tensor_create(const Shape shape, DataType dtype)
@@ -66,4 +75,23 @@ tensor_copy(const Tensor other)
     memcpy(new->data, other->data, num_bytes);
 
     return new;
+}
+
+static size_t
+_get_dtype_size(DataType dtype)
+{
+    switch (dtype)
+    {
+        case DTYPE_I32:
+            return sizeof(int32_t);
+            
+        case DTYPE_F32:
+            return sizeof(float);
+
+        case DTYPE_F64:
+            return sizeof(double);
+        
+        default:
+            return 0;
+    }
 }

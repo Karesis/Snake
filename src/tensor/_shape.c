@@ -1,10 +1,13 @@
+#include "tensor/_shape.h"
+
+#include "utils/_malloc.h"
+
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
 
-#include "tensor/_shape.h"
-#include "utils/_malloc.h"
+
 
 struct _shape
 {

@@ -1,7 +1,6 @@
 #ifndef _TENSOR_CORE_H
 #define _TENSOR_CORE_H
 
-#include <stdbool.h>
 #include "tensor/_shape.h" 
 
 struct _tensor;
@@ -9,8 +8,9 @@ typedef struct _tensor* Tensor;
 
 typedef enum
 {
+    DTYPE_I32,
     DTYPE_F32,
-    DTYPE_I32
+    DTYPE_F64
 } 
 DataType;
 
