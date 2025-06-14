@@ -88,5 +88,14 @@ bool shape_equals(const Shape a, const Shape b);
  */
 void shape_print(const Shape shape);
 
+/**
+ * @brief Check if this shape explains a contiguaus data
+ * @param shape is the Shape to be check.
+ */
+bool shape_is_contiguous(const Shape shape);
+
+Shape shape_permute(const Shape source_shape, const int* axes);
+
+Shape shape_expand(const Shape source_shape, const Shape target_shape);
 
 #endif // _SHAPE_H
