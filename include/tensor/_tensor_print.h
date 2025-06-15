@@ -4,17 +4,13 @@
 #include "tensor/_tensor_core.h" 
 
 /**
- * @brief Prints a representation of the tensor to the standard output,
- * mimicking the style of PyTorch.
+ * @brief Prints a human-readable representation of the tensor to stdout.
+ * This function intelligently formats the output for readability, similar
+ * to how libraries like PyTorch and NumPy display tensors. It correctly
+* handles tensors with non-contiguous memory layouts (e.g., views from
+* permute operations).
  *
- * @param t The tensor to print.
- * @param linesize The approximate maximum number of characters per line.
- */
-void tensor_print_opts(const Tensor t, int linesize);
-
-/**
- * @brief Prints a tensor with default line size (80).
- * @param t The tensor to print.
+ * @param t The tensor to be printed.
  */
 void tensor_print(const Tensor t);
 
