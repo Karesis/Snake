@@ -3,34 +3,39 @@
 #include "tensor/_shape.h"
 #include "utils/_malloc.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-#include <math.h>
+#include <stdio.h> // for fprintf(), stdout
+#include <stdlib.h> // for free()
+#include <string.h> // for memset()
+#include <stdbool.h> // for bool, true, false
+#include <math.h> // for isfinite(), floor(), fabs(), log10()
 
-typedef enum {
+typedef enum 
+{
     FORMAT_DEFAULT,
     FORMAT_SCIENTIFIC,
     FORMAT_FIXED
-} FormatType;
+} 
+FormatType;
 
-typedef struct {
+typedef struct 
+{
     int width;
     int precision;
     FormatType type;
-} PrintFormat;
+} 
+PrintFormat;
 
 static PrintFormat 
 _calculate_print_format(const double* data, size_t n) 
 {
-    if (n == 0) {
+    if (n == 0) 
         return (PrintFormat){0, 4, FORMAT_DEFAULT};
-    }
 
     bool int_mode = true;
-    for (size_t i = 0; i < n; ++i) {
-        if (isfinite(data[i]) && data[i] != floor(data[i])) {
+    for (size_t i = 0; i < n; ++i) 
+    {
+        if (isfinite(data[i]) && data[i] != floor(data[i])) 
+        {
             int_mode = false;
             break;
         }
@@ -38,34 +43,45 @@ _calculate_print_format(const double* data, size_t n)
 
     double exp_min = 0.0, exp_max = 0.0;
     bool first_finite = true;
-    for (size_t i = 0; i < n; ++i) {
+    for (size_t i = 0; i < n; ++i) 
+    {
         double z = fabs(data[i]);
-        if (isfinite(z) && z > 0) {
-            if (first_finite) {
+        if (isfinite(z) && z > 0) 
+        {
+            if (first_finite) 
+            {
                 exp_min = exp_max = z;
                 first_finite = false;
-            } else {
+            } 
+            else 
+            {
                 if (z < exp_min) exp_min = z;
                 if (z > exp_max) exp_max = z;
             }
         }
     }
 
-    if (!first_finite) { // 如果找到了至少一个有限的非零数
+    if (!first_finite) // 如果找到了至少一个有限的非零数
+    { 
         exp_min = floor(log10(exp_min));
         exp_max = floor(log10(exp_max));
     }
 
-    if (int_mode) {
-        if (exp_max > 9) {
+    if (int_mode) 
+    {
+        if (exp_max > 9) 
             return (PrintFormat){11, 4, FORMAT_SCIENTIFIC};
-        } else {
+        else 
+        {
             return (PrintFormat){(int)exp_max + 2, 0, FORMAT_DEFAULT};
         }
-    } else {
-        if (exp_max - exp_min > 4) {
+    } 
+    else 
+    {
+        if (exp_max - exp_min > 4) 
             return (PrintFormat){11, 4, FORMAT_SCIENTIFIC};
-        } else {
+        else 
+        {
             int precision = 4;
             int width = (exp_max > 0 ? (int)exp_max : 0) + precision + 2;
             return (PrintFormat){width, precision, FORMAT_FIXED};
@@ -73,17 +89,19 @@ _calculate_print_format(const double* data, size_t n)
     }
 }
 
-// 你的 _print_value 函数
 static void 
 _print_value(FILE* stream, double value, const PrintFormat* fmt)
 {
-    switch (fmt->type) {
+    switch (fmt->type) 
+    {
         case FORMAT_DEFAULT:
             fprintf(stream, "%*g", fmt->width, value);
             break;
+
         case FORMAT_SCIENTIFIC:
             fprintf(stream, "%*.*e", fmt->width, fmt->precision, value);
             break;
+
         case FORMAT_FIXED:
             fprintf(stream, "%*.*f", fmt->width, fmt->precision, value);
             break;
@@ -98,13 +116,16 @@ _print_recursive(FILE* stream, const Tensor t, int* coords, int current_dim, con
 
     fprintf(stream, "[");
 
-    if (current_dim == ndim - 1) { // Base case: a single row
-        for (int i = 0; i < size_this_dim; i++) {
+    if (current_dim == ndim - 1) 
+    { // Base case: a single row
+        for (int i = 0; i < size_this_dim; i ++) 
+        {
             coords[current_dim] = i;
             void* elem_ptr = tensor_get_element_ptr(t, coords);
             
             double val = 0.0;
-            switch (tensor_get_dtype(t)) {
+            switch (tensor_get_dtype(t)) 
+            {
                 case DTYPE_F32: val = (double)(*(float*)elem_ptr); break;
                 case DTYPE_F64: val = *(double*)elem_ptr; break;
                 case DTYPE_I32: val = (double)(*(int*)elem_ptr); break;
@@ -112,15 +133,20 @@ _print_recursive(FILE* stream, const Tensor t, int* coords, int current_dim, con
 
             _print_value(stream, val, fmt);
 
-            if (i < size_this_dim - 1) {
+            if (i < size_this_dim - 1) 
+            {
                 fprintf(stream, ", ");
             }
         }
-    } else { // Recursive step
-        for (int i = 0; i < size_this_dim; i++) {
+    } 
+    else // Recursive step
+    { 
+        for (int i = 0; i < size_this_dim; i++) 
+        {
             coords[current_dim] = i;
-            if (i > 0) {
-                 fprintf(stream, ",\n%*s", (current_dim + 1), "");
+            if (i > 0) 
+            {
+                fprintf(stream, ",\n%*s", (current_dim + 1), "");
             }
             _print_recursive(stream, t, coords, current_dim + 1, fmt);
         }
@@ -131,7 +157,8 @@ _print_recursive(FILE* stream, const Tensor t, int* coords, int current_dim, con
 static void 
 _tensor_print_stream(FILE* stream, const Tensor t) 
 {
-    if (t == NULL) {
+    if (t == NULL) 
+    {
         fprintf(stream, "[ Tensor (NULL) ]\n");
         return;
     }
@@ -139,13 +166,18 @@ _tensor_print_stream(FILE* stream, const Tensor t)
     const int ndim = tensor_get_ndim(t);
     const size_t num_elements = tensor_get_elements_count(t);
 
-    if (num_elements == 0) {
+    if (num_elements == 0) 
+    {
         fprintf(stream, "[]\n");
-    } else if (ndim == 0) {
+    }
+    else if (ndim == 0) 
+    {
         void* elem_ptr = tensor_get_data(t);
         double val = (tensor_get_dtype(t) == DTYPE_F32) ? (double)(*(float*)elem_ptr) : (double)(*(int*)elem_ptr); // 简化处理
         fprintf(stream, "%.4f\n", val);
-    } else {
+    } 
+    else 
+    {
         // --- 阶段一：预扫描，获取所有元素的值用于格式计算 ---
         double* temp_data = (double*)safemalloc(num_elements * sizeof(double));
         if (!temp_data) return;
@@ -153,7 +185,8 @@ _tensor_print_stream(FILE* stream, const Tensor t)
         int* coords = (int*)safecalloc(ndim, sizeof(int));
         if (!coords) { free(temp_data); return; }
 
-        for (size_t i = 0; i < num_elements; i++) {
+        for (size_t i = 0; i < num_elements; i++) 
+        {
             // "里程表"逻辑，用于遍历所有逻辑坐标
             void* elem_ptr = tensor_get_element_ptr(t, coords);
             switch (tensor_get_dtype(t)) {
